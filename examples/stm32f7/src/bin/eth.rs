@@ -16,12 +16,15 @@ use embassy_time::{Duration, Timer};
 use embedded_io::asynch::Write;
 use rand_core::RngCore;
 use static_cell::make_static;
+ use embassy_net::Ipv4Cidr;
+use heapless::Vec;
 use {defmt_rtt as _, panic_probe as _};
 bind_interrupts!(struct Irqs {
     ETH => eth::InterruptHandler;
 });
 
 type Device = Ethernet<'static, ETH, GenericSMI>;
+
 
 #[embassy_executor::task]
 async fn net_task(stack: &'static Stack<Device>) -> ! {
@@ -43,7 +46,6 @@ async fn main(spawner: Spawner) -> ! {
     let seed = u64::from_le_bytes(seed);
 
     let mac_addr = [0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF];
-
     let device = Ethernet::new(
         make_static!(PacketQueue::<16, 16>::new()),
         p.ETH,
@@ -55,19 +57,19 @@ async fn main(spawner: Spawner) -> ! {
         p.PC4,
         p.PC5,
         p.PG13,
-        p.PB13,
+        p.PG14,
         p.PG11,
         GenericSMI,
         mac_addr,
         0,
     );
 
-    let config = embassy_net::Config::dhcpv4(Default::default());
-    //let config = embassy_net::Config::ipv4_static(embassy_net::StaticConfigV4 {
-    //    address: Ipv4Cidr::new(Ipv4Address::new(10, 42, 0, 61), 24),
-    //    dns_servers: Vec::new(),
-    //    gateway: Some(Ipv4Address::new(10, 42, 0, 1)),
-    //});
+    //let config = embassy_net::Config::dhcpv4(Default::default());
+    let config = embassy_net::Config::ipv4_static(embassy_net::StaticConfigV4 {
+        address: Ipv4Cidr::new(Ipv4Address::new(10, 22, 3, 5), 24),
+        dns_servers: Vec::new(),
+        gateway: None,
+    });
 
     // Init network stack
     let stack = &*make_static!(Stack::new(
@@ -91,7 +93,7 @@ async fn main(spawner: Spawner) -> ! {
 
         socket.set_timeout(Some(embassy_time::Duration::from_secs(10)));
 
-        let remote_endpoint = (Ipv4Address::new(10, 42, 0, 1), 8000);
+        let remote_endpoint = (Ipv4Address::new(10, 22, 3, 4), 8000);
         info!("connecting...");
         let r = socket.connect(remote_endpoint).await;
         if let Err(e) = r {
@@ -99,7 +101,7 @@ async fn main(spawner: Spawner) -> ! {
             continue;
         }
         info!("connected!");
-        let buf = [0; 1024];
+        let buf = [0x41; 1024];
         loop {
             let r = socket.write_all(&buf).await;
             if let Err(e) = r {

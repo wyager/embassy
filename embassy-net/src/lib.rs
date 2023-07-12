@@ -663,6 +663,7 @@ impl<D: Driver + 'static> Inner<D> {
     }
 
     fn poll(&mut self, cx: &mut Context<'_>, s: &mut SocketStack) {
+        info!("Registering waker");
         s.waker.register(cx.waker());
 
         #[cfg(feature = "medium-ethernet")]
